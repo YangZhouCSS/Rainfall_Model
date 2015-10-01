@@ -44,16 +44,12 @@ to setup
   if Maptype = "Cone"[
     resize-world -71 71 -71 71
     ask patches [set elevation round distance patch 0 0   ]
-      set min-e [elevation] of min-one-of patches [elevation]
-      set max-e [elevation] of max-one-of patches [elevation]
-      ask patches[set pcolor scale-color black elevation min-e max-e]]
+     show_elevation]
     
     if Maptype = "Hill"[
     resize-world -71 71 -71 71
     ask patches [set elevation 300 - round distance patch 0 0   ]
-      set min-e [elevation] of min-one-of patches [elevation]
-      set max-e [elevation] of max-one-of patches [elevation]
-      ask patches[set pcolor scale-color black elevation min-e max-e]]    
+     show_elevation]    
   
   
   
@@ -66,11 +62,18 @@ to setup
 end
 
 to show_elevation
-    
-    set min-e gis:minimum-of elevation-dataset
+  if MapType = "CraterLake"
+    [set min-e gis:minimum-of elevation-dataset
     set max-e gis:maximum-of elevation-dataset
-    
     ask patches [set pcolor scale-color black elevation min-e max-e]
+    ]
+  
+  if Maptype = "Cone" or Maptype = "Hill"[
+      set min-e [elevation] of min-one-of patches [elevation]
+      set max-e [elevation] of max-one-of patches [elevation]
+      ask patches [set pcolor scale-color black elevation min-e max-e]]
+    
+  if Maptype = "Flat" [ask patches [set pcolor black] ]
     
   
 end
@@ -97,11 +100,9 @@ to go
   ifelse show_water_amount?
   [show_amount_of_water]
   [ask turtles [show-turtle]
-    set min-e [elevation] of min-one-of patches [elevation]
-      set max-e [elevation] of max-one-of patches [elevation]
-      ask patches[set pcolor scale-color black elevation min-e max-e]
+    show_elevation]
     
-    ]
+    
   tick  
   
 end
@@ -123,10 +124,8 @@ to show_amount_of_water
   ask patches [set amount_rain count turtles-here  ]
       set min-e [amount_rain] of min-one-of patches [amount_rain]
       set max-e [amount_rain] of max-one-of patches [amount_rain]
-      ask patches[set pcolor scale-color blue amount_rain max-e min-e]   
+      ask patches[set pcolor scale-color blue amount_rain (max-e + 2) min-e]   
       ask turtles [hide-turtle]
-    
-    
     
 end
 @#$#@#$#@
@@ -200,7 +199,7 @@ rain-rate
 rain-rate
 1
 20
-20
+15
 1
 1
 NIL
@@ -253,7 +252,7 @@ water-height
 water-height
 0
 20
-20
+5
 1
 1
 NIL
