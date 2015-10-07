@@ -4,21 +4,24 @@ breed [raindrops raindrop]
 breed [waters water]
 
 globals [
-  elevation-dataset
-  color-min
-  color-max
-  old-show-water?
+  elevation-dataset   
   border          ;; keep the patches around the edge in a global
                   ;; so we don't ever have to ask patches in go
-                  min-e
-                  max-e
+  min-e           ;;minimum elevation
+  max-e           ;;maximum elevation
+  the-row         ;;used in export-data. it is the row being written
 ]
 
 patches-own [
   elevation
-  amount_rain
+  initial_elevation      
+  elevation_change
+  amount_rain   ;;how many drops of rain here
 ]
 
+turtles-own[
+  soil        ;;how much soil a raindrop is carrying
+  ]
 
 to setup 
   ca
@@ -33,12 +36,14 @@ to setup
   
   gis:apply-raster elevation-dataset elevation
   
+  gis:apply-raster elevation-dataset initial_elevation
+  
   show_elevation]
   
   
   if MapType = "Flat" [
     resize-world -71 71 -71 71
-    ask patches [set elevation 10]]
+    ask patches [set elevation 0]]
   
   
   if Maptype = "Cone"[
@@ -50,8 +55,6 @@ to setup
     resize-world -71 71 -71 71
     ask patches [set elevation 300 - round distance patch 0 0   ]
      show_elevation]    
-  
-  
   
   set-default-shape turtles "circle"
 
@@ -79,23 +82,27 @@ to show_elevation
 end
 
 to go
-  ;;this part uses codes from the library model Grand Cayon
+  ;;this part uses codes from the library model Grand Cayon, with some modifications
   create-raindrops rain-rate
   [ ifelse show_water_amount?[hide-turtle set color blue][set color blue]
     set size 2
+    set soil 0
     move-to one-of patches
    ]
   
   ifelse draw?
     [ ask turtles [ pd ] ]
-    [ ask turtles [ pu ] ]
+    [ clear-drawing
+      ask turtles [ pu ] ]
 
-  ask raindrops [ flow ]
+  ask raindrops [ ifelse erosion?[flow_with_erosion][flow] ]
 
   ask border
   [
     ask turtles-here [ die ]
   ]
+  
+  ;;codes from Grand Cayon end here
   
   ifelse show_water_amount?
   [show_amount_of_water]
@@ -106,17 +113,37 @@ to go
   tick  
   
 end
-   
+
 to flow
-    
-  let target min-one-of neighbors [ elevation + (count turtles-here * water-height) ]
+  ;;this part uses codes from the library model Grand Cayon, with some modifications
+  
+  let target min-one-of neighbors [ elevation + ( count turtles-here * water-height) ] 
 
   ifelse [elevation + (count turtles-here * water-height)] of target
-     < (elevation + (count turtles-here * water-height))
+     < (elevation + ((count turtles-here - 0) * water-height))
     [ face target
-      move-to target ]
+      move-to target ]           
     [ set breed waters ]
+  ;;codes from Grand Cayon end here
+end 
+   
+to flow_with_erosion
+  ;;this part uses codes from the library model Grand Cayon, with some modifications
   
+  let target min-one-of neighbors [ elevation + ( count turtles-here * water-height) ] 
+
+  ifelse [elevation + (count turtles-here * water-height)] of target
+     < (elevation + ((count turtles-here - 0) * water-height))
+    [ ;;consider erosion effects
+      ask patch-here [set elevation elevation - 1]
+      set soil soil + 1
+      face target
+      move-to target 
+    ]           
+    [ set breed waters 
+      ask patch-here [set elevation elevation + [soil] of myself]
+      set soil 0]
+  ;;codes from Grand Cayon end here
 end
 
 
@@ -124,10 +151,50 @@ to show_amount_of_water
   ask patches [set amount_rain count turtles-here  ]
       set min-e [amount_rain] of min-one-of patches [amount_rain]
       set max-e [amount_rain] of max-one-of patches [amount_rain]
-      ask patches[set pcolor scale-color blue amount_rain (max-e + 2) min-e]   
+      ask patches[set pcolor scale-color blue amount_rain (max-e + 1) min-e ]   
       ask turtles [hide-turtle]
-    
 end
+
+
+to show_elevation_change
+ if erosion?[
+  ask patches [set elevation_change elevation - initial_elevation]
+  ask turtles [hide-turtle]
+  set min-e [elevation_change] of min-one-of patches [elevation_change]
+  set max-e [elevation_change] of max-one-of patches [elevation_change]
+      
+  ask patches with [elevation_change > 0][set pcolor scale-color green elevation_change min-e max-e];;increased
+      
+  ask patches with [elevation_change < 0][set pcolor scale-color red elevation_change min-e max-e];;decreased
+      
+  ask patches with [elevation_change = 0][set pcolor black]
+     
+ ]
+end
+
+to export_data
+
+  file-close 
+  file-delete "data/result.asc"
+  file-open "data/result.asc" 
+  file-print "ncols         285   \r\n" 
+  file-print "nrows         143   \r\n" 
+  file-print "xllcorner     -122.26638888878   \r\n" 
+  file-print "yllcorner     42.855833333   \r\n" 
+  file-print  "cellsize      0.0011111111111859   \r\n" 
+  file-print  "NODATA_value  -9999   \r\n" 
+  
+  
+  let i 71
+  while [i > -72]
+    [ set the-row []
+      set the-row patches with [pycor = i] 
+        foreach sort-on [pxcor] the-row [ask ? [file-write  elevation ]]
+     file-print "   \r\n"
+     set i i - 1] 
+  
+end
+  
 @#$#@#$#@
 GRAPHICS-WINDOW
 282
@@ -157,10 +224,10 @@ ticks
 30.0
 
 BUTTON
-38
-82
-101
-115
+33
+34
+96
+67
 NIL
 setup
 NIL
@@ -174,10 +241,10 @@ NIL
 1
 
 BUTTON
-115
-82
-178
-115
+110
+34
+173
+67
 NIL
 go
 T
@@ -191,10 +258,10 @@ NIL
 1
 
 SLIDER
-44
-142
+34
+183
+206
 216
-175
 rain-rate
 rain-rate
 1
@@ -206,10 +273,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-46
-222
-216
-255
+32
+315
+202
+348
 draw?
 draw?
 1
@@ -217,10 +284,10 @@ draw?
 -1000
 
 BUTTON
-189
-83
-252
-116
+184
+35
+247
+68
 NIL
 go
 NIL
@@ -234,26 +301,26 @@ NIL
 1
 
 CHOOSER
-46
-305
-216
-350
+34
+93
+204
+138
 MapType
 MapType
 "CraterLake" "Flat" "Cone" "Hill"
 0
 
 SLIDER
-43
-181
-215
-214
+30
+249
+202
+282
 water-height
 water-height
 0
-20
-5
 1
+0.2
+0.1
 1
 NIL
 HORIZONTAL
@@ -277,15 +344,130 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles"
 
 SWITCH
-46
-264
-216
-297
+29
+406
+199
+439
 show_water_amount?
 show_water_amount?
 1
 1
 -1000
+
+SWITCH
+29
+470
+199
+503
+erosion?
+erosion?
+1
+1
+-1000
+
+BUTTON
+284
+412
+449
+445
+NIL
+show_elevation_change
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+473
+414
+655
+470
+Green: elevation increased\nRed: elevation decreased\nScaled color, the higher the brighter
+11
+0.0
+1
+
+BUTTON
+966
+259
+1067
+292
+NIL
+export_data
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+36
+150
+186
+178
+How many raindrops created in one tick?
+11
+0.0
+1
+
+TEXTBOX
+36
+227
+186
+245
+Height of one drop of rain:
+11
+0.0
+1
+
+TEXTBOX
+36
+296
+186
+314
+Draw the trace of water:
+11
+0.0
+1
+
+TEXTBOX
+34
+360
+184
+402
+Show a map with scaled color based on the amount of water on patches.
+11
+0.0
+1
+
+TEXTBOX
+35
+450
+185
+468
+Erosion effect?
+11
+0.0
+1
+
+TEXTBOX
+969
+307
+1119
+363
+This comment will export the current elevation map into the result.asc file in the data folder.
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
