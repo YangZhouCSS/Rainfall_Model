@@ -1,4 +1,4 @@
-extensions [gis]
+extensions [gis ]
 
 breed [raindrops raindrop]
 breed [waters water]
@@ -10,6 +10,7 @@ globals [
   min-e           ;;minimum elevation
   max-e           ;;maximum elevation
   the-row         ;;used in export-data. it is the row being written
+  list_of_rain_amount 
 ]
 
 patches-own [
@@ -61,6 +62,8 @@ to setup
   
   set border patches with [ count neighbors != 8 ]
   
+  set list_of_rain_amount []
+  
     reset-ticks
 end
 
@@ -84,7 +87,7 @@ end
 to go
   ;;this part uses codes from the library model Grand Cayon, with some modifications
   create-raindrops rain-rate
-  [ ifelse show_water_amount?[hide-turtle set color blue][set color blue]
+  [ ifelse show_water_amount? or show_elevation_change? [hide-turtle set color blue][set color blue]
     set size 2
     set soil 0
     move-to one-of patches
@@ -95,7 +98,7 @@ to go
     [ clear-drawing
       ask turtles [ pu ] ]
 
-  ask raindrops [ ifelse erosion?[flow_with_erosion][flow] ]
+  ask raindrops [ ifelse erosion? [flow_with_erosion][flow] ]
 
   ask border
   [
@@ -105,11 +108,11 @@ to go
   ;;codes from Grand Cayon end here
   
   ifelse show_water_amount?
-  [show_amount_of_water]
-  [ask turtles [show-turtle]
-    show_elevation]
-    
-    
+    [show_amount_of_water]
+    [ifelse show_elevation_change? and erosion?[show_elevation_change ]  
+      [  ask turtles [show-turtle]
+         show_elevation]]
+  
   tick  
   
 end
@@ -148,28 +151,48 @@ end
 
 
 to show_amount_of_water
-  ask patches [set amount_rain count turtles-here  ]
-      set min-e [amount_rain] of min-one-of patches [amount_rain]
+
+  ;;To show by qurtiles
+  ;set list_of_rain_amount []
+  ;ask patches [set amount_rain count turtles-here  ]
+  ;ask patches with [amount_rain > 0][set list_of_rain_amount lput amount_rain list_of_rain_amount]
+  
+     ;set list_of_rain_amount sort list_of_rain_amount
+     ;let total count  patches with [amount_rain > 0]
+     ;let num int (total / 4)
+     
+     ;let q1 item num list_of_rain_amount
+     ;let q2 item (2 * num) list_of_rain_amount
+     ;let q3 item (3 * num) list_of_rain_amount
+     
+    ; ask patches with [amount_rain = 0 ][set pcolor black]
+    ; ask patches with [amount_rain <= q1 and amount_rain > 0] [set pcolor green]
+    ; ask patches with [amount_rain <= q2 and amount_rain > q1 ][set pcolor blue]
+    ; ask patches with [amount_rain <= q3 and amount_rain > q2 ][set pcolor yellow]
+    ; ask patches with [amount_rain > q3][ set pcolor red]
+   
+   
+   ;To show by scaled color. However, becuase the variation is small, it may be hard to see the difference.
+    ask patches [set amount_rain count turtles-here  ]
       set max-e [amount_rain] of max-one-of patches [amount_rain]
-      ask patches[set pcolor scale-color blue amount_rain (max-e + 1) min-e ]   
+      ask patches with [amount_rain > 0 ][set pcolor scale-color blue amount_rain (max-e + 1) 0 ]   
+      ask patches with [amount_rain = 0 ][set pcolor white]
       ask turtles [hide-turtle]
+
 end
 
 
 to show_elevation_change
- if erosion?[
+
   ask patches [set elevation_change elevation - initial_elevation]
   ask turtles [hide-turtle]
-  set min-e [elevation_change] of min-one-of patches [elevation_change]
-  set max-e [elevation_change] of max-one-of patches [elevation_change]
       
-  ask patches with [elevation_change > 0][set pcolor scale-color green elevation_change min-e max-e];;increased
+  ask patches with [elevation_change > 0][set pcolor green ];;increased
       
-  ask patches with [elevation_change < 0][set pcolor scale-color red elevation_change min-e max-e];;decreased
+  ask patches with [elevation_change < 0][set pcolor red ];;decreased
       
-  ask patches with [elevation_change = 0][set pcolor black]
-     
- ]
+  ask patches with [elevation_change = 0][set pcolor black]   
+ 
 end
 
 to export_data
@@ -264,9 +287,9 @@ SLIDER
 216
 rain-rate
 rain-rate
-1
+0
 20
-15
+20
 1
 1
 NIL
@@ -317,10 +340,10 @@ SLIDER
 282
 water-height
 water-height
-0
 1
-0.2
-0.1
+5
+5
+1
 1
 NIL
 HORIZONTAL
@@ -344,10 +367,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles"
 
 SWITCH
-29
-406
-199
-439
+290
+433
+460
+466
 show_water_amount?
 show_water_amount?
 1
@@ -356,41 +379,14 @@ show_water_amount?
 
 SWITCH
 29
-470
+385
 199
-503
+418
 erosion?
 erosion?
 1
 1
 -1000
-
-BUTTON
-284
-412
-449
-445
-NIL
-show_elevation_change
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-TEXTBOX
-473
-414
-655
-470
-Green: elevation increased\nRed: elevation decreased\nScaled color, the higher the brighter
-11
-0.0
-1
 
 BUTTON
 966
@@ -440,10 +436,10 @@ Draw the trace of water:
 1
 
 TEXTBOX
-34
-360
-184
-402
+297
+482
+447
+566
 Show a map with scaled color based on the amount of water on patches.
 11
 0.0
@@ -451,9 +447,9 @@ Show a map with scaled color based on the amount of water on patches.
 
 TEXTBOX
 35
-450
+365
 185
-468
+383
 Erosion effect?
 11
 0.0
@@ -469,10 +465,41 @@ This comment will export the current elevation map into the result.asc file in t
 0.0
 1
 
+SWITCH
+477
+434
+655
+467
+show_elevation_change?
+show_elevation_change?
+1
+1
+-1000
+
+TEXTBOX
+491
+482
+641
+594
+Show a map with scaled color based on elevation change.\nGreen: increased\nRed: decreased\nNote that this function only works when erosion is on.
+11
+0.0
+1
+
+TEXTBOX
+286
+406
+487
+434
+Turn only one on at the same time:
+11
+0.0
+1
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-This is a model of Rainfall and water runoff. It simulates the runoff of the rain. This model is inspired by the Grand Canyon Model.
+This is a model of Rainfall and water runoff. It simulates the runoff of the rain and its erosion. This model is inspired by the Grand Canyon Model.
 
 The map being used is the crater lake national park in Oregon. See below for an elevation map.
 
@@ -480,7 +507,7 @@ The map being used is the crater lake national park in Oregon. See below for an 
 
 ## HOW IT WORKS
 
-Rain drops are created randomly on the map based on the rain rate parameter. Rain drops will run to the neighboring patch with the lowest elevation. Besides, if there are already water in a patch, the height of water will also be added to its elevation, when raindrops are selecting the patch to run to. If a raindrop can not find a neighboring patch with lower elevation, it will stay where it is and become water. When raindrops run to the edge of the map, they are removed from this model.
+Rain drops are created randomly on the map based on the rain rate parameter. Rain drops will run to the neighboring patch with the lowest elevation. Besides, if there are already water in a patch, the height of water will also be added to its elevation, when raindrops are selecting the patch to run to. If a raindrop can not find a neighboring patch with lower elevation, it will stay where it is and become water. When erosion is turned on, the rain drops will take away one unit of soil when it runs through a patch. Then, the soil will be deposited at the patch where the rain drop stops. When raindrops run to the edge of the map, they are removed from this model. 
 
 ## HOW TO USE IT
 
@@ -504,11 +531,11 @@ In this model, the lake does collect raindrops falling into it. However, it does
 
 ## THINGS TO TRY
 
-Change the rain rate, water height as needed. Try to turn on show_water_amount? to observe the amount of water. Load another map to run the simulation for other places.
+Change the rain rate, water height as needed. Try to turn on show_water_amount? to observe the amount of water. Click on elevation change to get a general view of how the elevation has changed due to erosion. Load another map to run the simulation for other places.
 
 ## EXTENDING THE MODEL
 
-You may add base water level in the beginning and simulate the situation in a heavy rain.
+You may add base water level in the beginning, for example, the lake is filled, and simulate the situation in a heavy rain.
 
 ## NETLOGO FEATURES
 
