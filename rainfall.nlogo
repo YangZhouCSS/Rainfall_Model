@@ -209,7 +209,7 @@ to export_data
   
   
   let i 71
-  while [i > -72]
+  while [i >= -72]
     [ set the-row []
       set the-row patches with [pycor = i] 
         foreach sort-on [pxcor] the-row [ask ? [file-write  elevation ]]
