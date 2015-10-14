@@ -123,7 +123,7 @@ to flow
   let target min-one-of neighbors [ elevation + ( count turtles-here * water-height) ] 
 
   ifelse [elevation + (count turtles-here * water-height)] of target
-     < (elevation + ((count turtles-here - 0) * water-height))
+     < (elevation + ((count turtles-here - 1) * water-height))
     [ face target
       move-to target ]           
     [ set breed waters ]
@@ -136,7 +136,7 @@ to flow_with_erosion
   let target min-one-of neighbors [ elevation + ( count turtles-here * water-height) ] 
 
   ifelse [elevation + (count turtles-here * water-height)] of target
-     < (elevation + ((count turtles-here - 0) * water-height))
+     < (elevation + ((count turtles-here - 1) * water-height))
     [ ;;consider erosion effects
       ask patch-here [set elevation elevation - 1]
       set soil soil + 1
